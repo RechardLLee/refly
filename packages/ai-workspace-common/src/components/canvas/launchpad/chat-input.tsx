@@ -120,6 +120,17 @@ const ChatInputComponent = forwardRef<HTMLDivElement, ChatInputProps>(
           searchStore.setIsSearchOpen(true);
         }
 
+        // Only intercept ArrowUp and ArrowDown when skill selector is active and has options
+        if (
+          (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+          showSkillSelector &&
+          hasMatchedOptions.current &&
+          options.length > 0
+        ) {
+          // Allow the default behavior for AutoComplete navigation
+          return;
+        }
+
         // Handle the Enter key
         if (e.keyCode === 13) {
           // Shift + Enter creates a new line (let default behavior handle it)
@@ -286,18 +297,66 @@ const ChatInputComponent = forwardRef<HTMLDivElement, ChatInputProps>(
             <div className="text-green-600 text-sm font-medium">{t('common.dropImageHere')}</div>
           </div>
         )}
-        <AutoComplete
-          className="h-full"
-          autoFocus={!readonly}
-          open={showSkillSelector && !readonly}
-          options={options}
-          popupMatchSelectWidth={false}
-          placement={autoCompletionPlacement}
-          value={query}
-          disabled={readonly}
-          filterOption={filterOption}
-          onSelect={onSelect}
-        >
+        {showSkillSelector && !readonly && options.length > 0 ? (
+          <AutoComplete
+            className="h-full"
+            autoFocus={!readonly}
+            open={true}
+            options={options}
+            popupMatchSelectWidth={false}
+            placement={autoCompletionPlacement}
+            value={query}
+            disabled={readonly}
+            filterOption={filterOption}
+            onSelect={onSelect}
+          >
+            <TextArea
+              style={{ paddingLeft: 0, paddingRight: 0, height: '100%' }}
+              ref={inputRef}
+              autoFocus={!readonly}
+              disabled={readonly}
+              onFocus={handleFocus}
+              onBlur={() => {
+                setTimeout(() => {
+                  setShowSkillSelector(false);
+                }, 100);
+              }}
+              value={query ?? ''}
+              onChange={handleInputChange}
+              onKeyDownCapture={handleKeyDown}
+              onPaste={(e) => {
+                if (readonly) return;
+                if (e.clipboardData?.items) {
+                  for (const item of e.clipboardData.items) {
+                    if (item.type.startsWith('image/')) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      break;
+                    }
+                  }
+                }
+              }}
+              className={cn(
+                '!m-0 bg-transparent outline-none box-border border-none resize-none focus:outline-none focus:shadow-none focus:border-none',
+                inputClassName,
+                readonly && 'cursor-not-allowed !text-black !bg-transparent',
+              )}
+              placeholder={
+                selectedSkillName
+                  ? t(`${selectedSkillName}.placeholder`, {
+                      ns: 'skill',
+                      defaultValue: t('commonQnA.placeholder', { ns: 'skill' }),
+                    })
+                  : t('commonQnA.placeholder', { ns: 'skill' })
+              }
+              autoSize={{
+                minRows: 1,
+                maxRows: maxRows ?? 6,
+              }}
+              data-cy="chat-input"
+            />
+          </AutoComplete>
+        ) : (
           <TextArea
             style={{ paddingLeft: 0, paddingRight: 0, height: '100%' }}
             ref={inputRef}
@@ -343,7 +402,7 @@ const ChatInputComponent = forwardRef<HTMLDivElement, ChatInputProps>(
             }}
             data-cy="chat-input"
           />
-        </AutoComplete>
+        )}
       </div>
     );
   },

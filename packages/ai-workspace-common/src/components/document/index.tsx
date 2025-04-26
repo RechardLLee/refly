@@ -11,6 +11,7 @@ import {
   IconUnlock,
   IconShare,
 } from '@refly-packages/ai-workspace-common/components/common/icon';
+import { IconEye, IconEyeInvisible } from '@arco-design/web-react/icon';
 import { useTranslation } from 'react-i18next';
 import { useDocumentStoreShallow } from '@refly-packages/ai-workspace-common/stores/document';
 
@@ -144,6 +145,7 @@ const StatusBar = memo(
     const [unsyncedChanges, setUnsyncedChanges] = useState(provider?.unsyncedChanges || 0);
     const [debouncedUnsyncedChanges] = useDebounce(unsyncedChanges, 500);
     const [isSharing, setIsSharing] = useState(false);
+    const [showSyncStatus, setShowSyncStatus] = useState(true);
 
     const handleUnsyncedChanges = useCallback((data: number) => {
       setUnsyncedChanges(data);
@@ -155,6 +157,21 @@ const StatusBar = memo(
         provider?.off('unsyncedChanges', handleUnsyncedChanges);
       };
     }, [provider, handleUnsyncedChanges]);
+
+    // 保存同步状态显示首选项到本地存储
+    useEffect(() => {
+      // 初始化时从本地存储读取首选项
+      const savedPreference = localStorage.getItem('document-sync-status-visible');
+      if (savedPreference !== null) {
+        setShowSyncStatus(savedPreference === 'true');
+      }
+    }, []);
+
+    const toggleSyncStatusVisibility = useCallback(() => {
+      const newValue = !showSyncStatus;
+      setShowSyncStatus(newValue);
+      localStorage.setItem('document-sync-status-visible', String(newValue));
+    }, [showSyncStatus]);
 
     const { config, setDocumentReadOnly } = useDocumentStoreShallow((state) => ({
       config: state.config[docId],
@@ -267,18 +284,44 @@ const StatusBar = memo(
     return (
       <div className="w-full h-10 p-3 border-x-0 border-t-0 border-b border-solid border-gray-100 flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
-          <div
-            className={`
+          {showSyncStatus && (
+            <>
+              <div
+                className={`
                   relative w-2.5 h-2.5 rounded-full
                   transition-colors duration-700 ease-in-out
                   ${debouncedUnsyncedChanges > 0 ? 'bg-yellow-500 animate-pulse' : 'bg-green-400'}
                 `}
-          />
-          <div className="text-sm text-gray-500">
-            {debouncedUnsyncedChanges > 0
-              ? t('canvas.toolbar.syncingChanges')
-              : t('canvas.toolbar.synced', { time: time(new Date(), language)?.utc()?.fromNow() })}
-          </div>
+              />
+              <div className="text-sm text-gray-500">
+                {debouncedUnsyncedChanges > 0
+                  ? t('canvas.toolbar.syncingChanges')
+                  : t('canvas.toolbar.synced', {
+                      time: time(new Date(), language)?.utc()?.fromNow(),
+                    })}
+              </div>
+            </>
+          )}
+          <Tooltip
+            placement="bottom"
+            title={
+              showSyncStatus
+                ? t('document.hideSyncStatus', '隐藏同步状态')
+                : t('document.showSyncStatus', '显示同步状态')
+            }
+          >
+            <Button
+              type="text"
+              icon={
+                showSyncStatus ? (
+                  <IconEye className="text-gray-500" />
+                ) : (
+                  <IconEyeInvisible className="text-gray-500" />
+                )
+              }
+              onClick={toggleSyncStatusVisibility}
+            />
+          </Tooltip>
         </div>
 
         <div className="flex items-center gap-1">
